@@ -2,11 +2,11 @@
 # @oscars47
 
 # using sympy to handle symbolic manipulation
-from sympy import sqrt
 from sympy.solvers import solve
 from sympy import *
 from sympy.physics.quantum.dagger import Dagger
 import numpy as np
+from itertools import combinations
 
 ## Initialize d value ##
 
@@ -50,23 +50,36 @@ def read_BS(bs):
 
 ## Generate Bell States ##
 generate_bs(d)
-print('---------')
+print('*---------*')
 print('initializing with d =', d)
 print('num BS:', len(bs_dict))
 for key in bs_dict:
     read_BS(bs_dict[key])
-print('---------')
+print('*---------*')
 
 ## Helper functions for measurement ##
 
 # initialize symbols
 var_dict={}
+alphabet = [] # alphabet of synbols
 for i in range(2*d):
-    var_dict['v'+str(i)] = Symbol('v'+str(i))
+    a_i, b_i = Symbol('a'+str(i), real=True), Symbol('b'+str(i), real=True)
+    # alphabet['a'+str(i)] = a_i
+    # alphabet['b'+str(i)] = b_i
+    alphabet.append(a_i)
+    alphabet.append(b_i)
+    var_dict['v'+str(i)] = a_i+b_i*I
+    # var_dict['v'+str(i)] = Symbol('v'+str(i))
+
+# get normalization term: sum of modulus squared for each variable
+norm_ls = [Dagger(var_dict['v'+str(i)])*var_dict['v'+str(i)] for i in range(len(var_dict))]
+norm_ls.append(-1) # append a -1, i.e. sum_i v_iv_i^\dagger -1 = 0
+norm_cond = sum(norm_ls)
 
 # for measurement
 def measure_BS(bs):
-    measured_ls = [] # list to hold sympy matrices which we will take the inner product of with other BS
+    # measured_ls = [] # list to hold sympy matrices which we will take the inner product of with other BS
+    measured = Matrix(np.zeros(2*d))
     # go through each joint particle state
     for i, numv in enumerate(bs[0]):
         for j in range(2*d): # check over each index to annihilate
@@ -75,17 +88,29 @@ def measure_BS(bs):
                 lowered[j]-=1
                 phase = bs[1][i] # get phase factor
                 vj = var_dict['v'+str(j)] # get sympy variable coefficient for this annihilation operator
-                result = Matrix(lowered)*phase*vj
-                measured_ls.append(result)
+                # break up phase into re and im; need to deal with really small and should be 0 terms
+                phase_re = re(phase)
+                phase_im = im(phase)
+                if phase_re < 10**(-4):
+                    phase_re=0
+                if phase_im < 10**(-4):
+                    phase_im=0
+                phase = phase_re + phase_im*I
+                coef= phase*vj
+                # print('coef', coef)
+                # if N(coef) < 10**(-4):
+                #     coef=0
+                result = Matrix(lowered)*coef
+                measured+=result
             
-    return measured_ls
+    return measured
 
-print('---------')
-print('measuring:')
-bs = bs_dict['01'] # pick sample qudit to measure
-read_BS(bs)
-print(measure_BS(bs))
-print('---------')
+# print('-----*----')
+# print('measuring:')
+# bs = bs_dict['01'] # pick sample qudit to measure
+# read_BS(bs)
+# print(measure_BS(bs))
+# print('-----*----')
 
 # measure all qudits and store
 measured_all = []
@@ -95,12 +120,93 @@ for key in bs_dict:
 ## Choose k ##
 # k = int(input('Enter a value for k: '))
 k = 3
+print('k = ', k)
 
 ## Find all unique combinations of the d**2 BS choose k ##
 # Use Ben's work to find equivalence classes #
 # for now, take combinations of k indices from the measured
+k_groups = list(combinations(np.arange(0, len(measured_all)), k))
 
 ## Take inner product within all unique k groups ##
+# takes in k_group and exisiting eqn for the entire k group
+def solve_k_eqn(k_group):
+    print('-*----*---*-')
+    print('using k group:', k_group)
+    pairs_comb = list(combinations(k_group, 2))
+    # we want to find 2d unique solutions to cover all the detector modes
+    eqn_re = [] # list to hold equations which we generate from the inner products
+    eqn_im = []
+    for pair in pairs_comb:
+        inner_prod = Dagger(measured_all[pair[0]])*measured_all[pair[1]]
+        # split result into real and imaginary components
+        # print(inner_prod)
+        eqn_re.append(re(inner_prod))
+        eqn_im.append(im(inner_prod))
 
+    eqn_re.append(re(norm_cond))
+    # eqn_im.append(im(norm_cond)) # no imaginary component of length
+    # eqn.append(im(norm_cond))
+    # eqs,S('(r5,r6,r9)'),manual=1,check=0,simplify=0
+    # print('len re:', len(eqn_re), 'len im:', len(eqn_im))
+    print('eqn re:', eqn_re)
+    print('eqn im:', eqn_im) 
+    # soln = nsolve(eqn, [alphabet['a0'], alphabet['a1'], alphabet['a2'], alphabet['a3'], alphabet['b0'], alphabet['b1'], alphabet['b2'], alphabet['b3']], 0, dict=True)
+    # print(tuple(alphabet[:-1]))
+    # if len(eqn)<len(alphabet):
+    # #     soln = nsolve(tuple(eqn), tuple(alphabet[:-(len(alphabet) - len(eqn))]), tuple(np.zeros(len(alphabet)-1)), dict=True)
+    #     soln =solve(eqn, tuple(alphabet[:len(eqn)-len(alphabet)]), dict=True)
+    #     # print('here')
+    # else:
+    # #      soln = nsolve(tuple(eqn), tuple(alphabet), tuple(np.zeros(len(alphabet)-1)), dict=True)
+    #     soln =solve(eqn, tuple(alphabet), dict=True)
+    # sometimes im part or real part is 0
+    # if eqn_re!=[Matrix([[0]])]:
+    #     soln_re =solve(eqn_re,dict=True)
+    # else:
+    #     soln_re=[]
+    # if eqn_im!=[Matrix([[0]])]:
+    #     soln_im =solve(eqn_im,dict=True)
+    # else:
+    #     soln_im=[]
+
+    soln_re =solve(eqn_re,dict=True)
+    soln_im =solve(eqn_im,dict=True) 
+
+    if len(soln_re)>=1 and len(soln_im)>=1:
+        soln_re =solve(eqn_re,dict=True)[0]
+        soln_im =solve(eqn_im,dict=True)[0]
+        # combine eqns to solve for intersection
+        eqn_intersect = []
+        soln_re_dep = soln_re.keys() # dependent vars for real
+        for re_dep in soln_re_dep:
+            eqn_intersect.append(re_dep - soln_re[re_dep])
+        soln_im_dep = soln_im.keys() # dependent vars for real
+        for im_dep in soln_im_dep:
+            eqn_intersect.append(im_dep - soln_im[im_dep])
+
+        soln_intersect = solve(eqn_intersect)
+        print('soln of intersect:', soln_intersect)
+        print('len of soln intersect:', len(soln_intersect))
+    
+    elif len(soln_re)>=1 and len(soln_im)<1:
+        soln_re =solve(eqn_re,dict=True)[0]
+        print('soln re (only):', soln_re)
+        print('len of re only:', len(soln_re))
+
+    elif len(soln_im)>=1 and len(soln_re)<1:
+        soln_im =solve(eqn_im,dict=True)[0]
+        print('soln im (only):', soln_im)
+        print('len of im only:', len(soln_im))
+    
+
+    
+    
+    
+
+    ## ISSUE: not finding symbolic solution ##
+    # https://stackoverflow.com/questions/61548790/sympy-solve-returns-an-empty-set
+    
+for k_group in k_groups:
+    solve_k_eqn(k_group)
 ## Solve resultant system ##
 # need to implement check for time?

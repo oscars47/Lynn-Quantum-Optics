@@ -13,6 +13,7 @@ from itertools import combinations
 
 # d = int(input('Enter a value for d: '))
 d=2
+k=3
 
 ## Helper Functions for Bell State Generation ##
 

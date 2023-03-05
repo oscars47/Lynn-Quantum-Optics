@@ -5,6 +5,7 @@
 from sympy.solvers import solve
 from sympy import *
 from sympy.physics.quantum.dagger import Dagger
+from sympy.printing.mathematica import MCodePrinter
 import numpy as np
 from itertools import combinations
 
@@ -70,7 +71,7 @@ for i in range(2*d):
     alphabet.append(b_i)
     var_dict['v'+str(i)] = a_i+b_i*I
     # var_dict['v'+str(i)] = Symbol('v'+str(i))
-
+alphabet=tuple(alphabet)
 # get normalization term: sum of modulus squared for each variable
 norm_ls = [Dagger(var_dict['v'+str(i)])*var_dict['v'+str(i)] for i in range(len(var_dict))]
 norm_ls.append(-1) # append a -1, i.e. sum_i v_iv_i^\dagger -1 = 0
@@ -119,7 +120,7 @@ for key in bs_dict:
 
 ## Choose k ##
 # k = int(input('Enter a value for k: '))
-k = 3
+k = 2
 print('k = ', k)
 
 ## Find all unique combinations of the d**2 BS choose k ##
@@ -136,14 +137,22 @@ def solve_k_eqn(k_group):
     # we want to find 2d unique solutions to cover all the detector modes
     eqn_re = [] # list to hold equations which we generate from the inner products
     eqn_im = []
+    eqn_total = []
     for pair in pairs_comb:
         inner_prod = Dagger(measured_all[pair[0]])*measured_all[pair[1]]
         # split result into real and imaginary components
         # print(inner_prod)
-        eqn_re.append(re(inner_prod))
-        eqn_im.append(im(inner_prod))
+        re_part= re(inner_prod)
+        im_part = im(inner_prod)
+        if re_part != Matrix([0]): # want only nonzero terms
+            eqn_re.append(re_part)
+            eqn_total.append(re_part)
+        if im_part != Matrix([0]):
+            eqn_im.append(im_part)
+            eqn_total.append(im_part)
 
     eqn_re.append(re(norm_cond))
+    eqn_total.append(re(norm_cond))
     # eqn_im.append(im(norm_cond)) # no imaginary component of length
     # eqn.append(im(norm_cond))
     # eqs,S('(r5,r6,r9)'),manual=1,check=0,simplify=0
@@ -169,37 +178,44 @@ def solve_k_eqn(k_group):
     # else:
     #     soln_im=[]
 
-    soln_re =solve(eqn_re,dict=True)
-    soln_im =solve(eqn_im,dict=True) 
+    ## solving separately ##
 
-    if len(soln_re)>=1 and len(soln_im)>=1:
-        soln_re =solve(eqn_re,dict=True)[0]
-        soln_im =solve(eqn_im,dict=True)[0]
-        # combine eqns to solve for intersection
-        eqn_intersect = []
-        soln_re_dep = soln_re.keys() # dependent vars for real
-        for re_dep in soln_re_dep:
-            eqn_intersect.append(re_dep - soln_re[re_dep])
-        soln_im_dep = soln_im.keys() # dependent vars for real
-        for im_dep in soln_im_dep:
-            eqn_intersect.append(im_dep - soln_im[im_dep])
+    # soln_re =solve(eqn_re,dict=True)
+    # soln_im =solve(eqn_im,dict=True) 
 
-        soln_intersect = solve(eqn_intersect)
-        print('soln of intersect:', soln_intersect)
-        print('len of soln intersect:', len(soln_intersect))
+    # if len(soln_re)>=1 and len(soln_im)>=1:
+    #     soln_re =solve(eqn_re,dict=True)[0]
+    #     soln_im =solve(eqn_im,dict=True)[0]
+    #     # combine eqns to solve for intersection
+    #     eqn_intersect = []
+    #     soln_re_dep = soln_re.keys() # dependent vars for real
+    #     for re_dep in soln_re_dep:
+    #         eqn_intersect.append(re_dep - soln_re[re_dep])
+    #     soln_im_dep = soln_im.keys() # dependent vars for real
+    #     for im_dep in soln_im_dep:
+    #         eqn_intersect.append(im_dep - soln_im[im_dep])
+
+    #     soln_intersect = solve(eqn_intersect)
+    #     print('soln of intersect:', soln_intersect)
+    #     print('len of soln intersect:', len(soln_intersect))
     
-    elif len(soln_re)>=1 and len(soln_im)<1:
-        soln_re =solve(eqn_re,dict=True)[0]
-        print('soln re (only):', soln_re)
-        print('len of re only:', len(soln_re))
+    # elif len(soln_re)>=1 and len(soln_im)<1:
+    #     soln_re =solve(eqn_re,dict=True)[0]
+    #     print('soln re (only):', soln_re)
+    #     print('len of re only:', len(soln_re))
 
-    elif len(soln_im)>=1 and len(soln_re)<1:
-        soln_im =solve(eqn_im,dict=True)[0]
-        print('soln im (only):', soln_im)
-        print('len of im only:', len(soln_im))
+    # elif len(soln_im)>=1 and len(soln_re)<1:
+    #     soln_im =solve(eqn_im,dict=True)[0]
+    #     print('soln im (only):', soln_im)
+    #     print('len of im only:', len(soln_im))
     
-
-    
+    # eqn_total = []
+    # eqn_total.append(eqn_re)
+    # eqn_total.append(eqn_im)
+    print('eqn total:', eqn_total)
+    soln = solve(eqn_total, alphabet, force=True, manual=True, dict=True)
+    # soln = solve(eqn_total, alphabet, force=True, dict=True)
+    print('soln:', soln)
     
     
 

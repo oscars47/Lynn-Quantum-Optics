@@ -15,7 +15,11 @@ import signal # limit time for solvers
 ## Initialize d value ##
 
 # d = int(input('Enter a value for d: '))
-d=3
+d=4
+## Choose k ##
+# k = int(input('Enter a value for k: '))
+k = 3
+
 
 ## Helper Functions for Bell State Generation ##
 
@@ -56,6 +60,7 @@ def read_BS(bs):
 generate_bs(d)
 print('*---------*')
 print('initializing with d =', d)
+print('k = ', k)
 print('num BS:', len(bs_dict))
 for key in bs_dict:
     read_BS(bs_dict[key])
@@ -121,11 +126,6 @@ measured_all = []
 for key in bs_dict:
     measured_all.append(measure_BS(bs_dict[key]))
 
-## Choose k ##
-# k = int(input('Enter a value for k: '))
-k = 3
-print('k = ', k)
-
 ## Find all unique combinations of the d**2 BS choose k ##
 # Use Ben's work to find equivalence classes #
 # for now, take combinations of k indices from the measured
@@ -152,6 +152,8 @@ def solve_k_eqn(k_group):
         # print(inner_prod)
         re_part= re(inner_prod)[0]
         im_part = im(inner_prod)[0]
+        # re_part= nsimplify(re(inner_prod)[0]) # convert to rationals
+        # im_part = nsimplify(im(inner_prod)[0])
         if re_part != 0: # want only nonzero terms
             eqn_re.append(re_part)
             eqn_total.append(re_part)
@@ -195,21 +197,32 @@ def solve_k_eqn(k_group):
     results_new=0
     findsoln=False
     
-    @break_after(10) # 30 second limit
+    @break_after(5) # 30 second limit
     def try_soln():  
         global findsoln
         global results_new
-        try:
-            soln = nonlinsolve(eqn_total, alphabet)
-            print('soln:', soln)
-            print(len(soln))
-            if len(soln)>0:
-                results_new = {'d': d, 'k_group':k_group, 'num_soln':len(soln)}
-                findsoln = True # found a solution!
-        except:
-            print('there was a problem with the solve')
+        # try:
+        #     soln = nonlinsolve(eqn_total, alphabet)
+        #     print('soln:', soln)
+        #     print(len(soln))
+        #     if len(soln)>0:
+        #         results_new = {'d': d, 'k_group':k_group, 'num_soln':len(soln)}
+        #         findsoln = True # found a solution!
+        # except:
+        #     print('there was a problem with the solve')
             # ValueError: Absolute values cannot be inverted in the complex domain.
-        
+
+        # soln = nonlinsolve(eqn_total, alphabet)
+        soln = solve(eqn_total, alphabet, manual=True, set=True)
+        # soln = solve(eqn_total, alphabet, check=False, rational=True, manual=True, set=True, implicit=True)
+
+        # soln = nsolve(eqn_total, alphabet, np.zeros(len(alphabet))) # need as many equations as variables for nsolve
+        print('soln:', soln)
+        if len(soln) > 0 and len(soln[1])>2:
+            # print(len(soln[1]))
+            results_new = {'d': d, 'k_group':k_group, 'num_soln':len(soln[1])}
+            findsoln = True # found a solution!
+    
 
     
     try_soln()
